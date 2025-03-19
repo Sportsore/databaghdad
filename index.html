@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>داتابيس بغداد</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/css/all.min.css">
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f7f7f7;
+      color: #333;
+      direction: rtl;
+    }
+    header {
+      background: #5563DE;
+      color: #fff;
+      padding: 15px 15px 15px 50px;
+      font-size: 24px;
+      text-align: center;
+      position: relative;
+    }
+    header a.back-icon {
+      position: absolute;
+      left: 15px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #fff;
+      font-size: 24px;
+      text-decoration: none;
+    }
+    .container {
+      padding: 20px;
+      max-width: 100%;
+      box-sizing: border-box;
+    }
+    .section {
+      margin-bottom: 20px;
+    }
+    .upload-section,
+    .search-section {
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .hidden {
+      display: none;
+    }
+    input[type="file"],
+    input[type="text"] {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      box-sizing: border-box;
+      font-size: 16px;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      background: #5563DE;
+      border: none;
+      border-radius: 4px;
+      color: #fff;
+      font-size: 18px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+    button:hover {
+      background: #3e4abb;
+    }
+    #progressContainer {
+      width: 100%;
+      background: #ddd;
+      border-radius: 10px;
+      overflow: hidden;
+      height: 20px;
+      margin: 15px 0;
+    }
+    #progressBar {
+      height: 100%;
+      width: 0%;
+      background: #28a745;
+      transition: width 0.2s ease;
+    }
+    .results {
+      margin-top: 20px;
+    }
+    .result-item {
+      margin-bottom: 30px;
+      padding: 15px;
+      border: 1px solid #eee;
+      border-radius: 4px;
+      background: #fff;
+      word-wrap: break-word;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    .result-item span {
+      display: block;
+      margin: 6px 0;
+      font-size: 16px;
+    }
+    .btn-container {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+    .copy-btn,
+    .family-btn {
+      flex: 1;
+      padding: 8px;
+      background: #5563DE;
+      border: none;
+      border-radius: 4px;
+      color: #fff;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+    .copy-btn:hover,
+    .family-btn:hover {
+      background: #3e4abb;
+    }
+    .back-button {
+      margin-bottom: 15px;
+      color: #5563DE;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    .back-button:hover {
+      text-decoration: underline;
+    }
+    @media (max-width: 600px) {
+      header {
+        font-size: 20px;
+        padding: 10px 10px 10px 45px;
+      }
+      header a.back-icon {
+        font-size: 20px;
+        left: 10px;
+      }
+      .container { padding: 10px; }
+      button, .copy-btn, .family-btn { font-size: 16px; padding: 10px; }
+      .result-item { padding: 10px; }
+      .btn-container { flex-direction: column; }
+      .btn-container button { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <a href="https://sportsore.github.io/DatabaseIraq/" class="back-icon"><i class="fas fa-arrow-right"></i></a>
+داتابيس بغداد
+  </header>
+  <div class="container">
+    <div class="section upload-section" id="uploadSection">
+      <input type="file" id="fileInput" accept=".txt">
+    </div>
+    <div class="section search-section hidden" id="searchSection">
+      <div class="back-button" id="backButton">&#8592; رجوع</div>
+      <input type="text" id="searchBox" placeholder="اكتب نص البحث">
+      <button id="searchBtn">بحث</button>
+      <div id="progressContainer">
+        <div id="progressBar"></div>
+      </div>
+      <div class="results" id="results"></div>
+    </div>
+  </div>
+  <script>
+    let file, chunkSize = 1024 * 1024, offset = 0, remainder = "", query = "";
+    const displayDelay = 200; 
+    let delayIndex = 0;
+    let currentSearchType = "query";
+    let currentField2Value = "";
+    let displayedNames = new Set();
+    let stopMainSearch = false;
+    let timeouts = [];
+    let familyData = [];
+    
+    const columnLabels = [
+      "رقم التسجيل",    
+      "رقم التومينية",  
+      "الاسم الأول",    
+      "اسم الأب",       
+      "اسم الجد",       
+      "الرقم التسلسلي", 
+      "تاريخ الميلاد",  
+      "المهنة",         
+      "اسم الأم",       
+      "اسم الجدة",      
+      "القضاء",         
+      "الناحية",        
+      "الشارع",         
+      "رقم الدار",      
+      "المنطقة"         
+    ];
+    
+    const fileInput = document.getElementById("fileInput");
+    const uploadSection = document.getElementById("uploadSection");
+    const searchSection = document.getElementById("searchSection");
+    const backButton = document.getElementById("backButton");
+    const searchBtn = document.getElementById("searchBtn");
+    const progressBar = document.getElementById("progressBar");
+    const resultsContainer = document.getElementById("results");
+    const searchBox = document.getElementById("searchBox");
+    
+    fileInput.addEventListener("change", function(e) {
+      file = e.target.files[0];
+      if (!file) return;
+      offset = 0;
+      remainder = "";
+      uploadSection.classList.add("hidden");
+      searchSection.classList.remove("hidden");
+      currentSearchType = "query";
+      displayedNames.clear();
+      stopMainSearch = false;
+    });
+    
+    backButton.addEventListener("click", function() {
+      fileInput.value = "";
+      file = null;
+      offset = 0;
+      remainder = "";
+      query = "";
+      searchBox.value = "";
+      progressBar.style.width = "0%";
+      resultsContainer.innerHTML = "";
+      searchSection.classList.add("hidden");
+      uploadSection.classList.remove("hidden");
+      currentSearchType = "query";
+      displayedNames.clear();
+      stopMainSearch = false;
+    });
+    
+    searchBtn.addEventListener("click", function() {
+      query = searchBox.value.trim();
+      if(query === "") {
+        alert("يرجى إدخال نص للبحث");
+        return;
+      }
+      resultsContainer.innerHTML = "";
+      progressBar.style.width = "0%";
+      offset = 0;
+      remainder = "";
+      delayIndex = 0;
+      displayedNames.clear();
+      currentSearchType = "query";
+      stopMainSearch = false;
+      processChunk();
+    });
+    
+    function processChunk() {
+      if(stopMainSearch) return;
+      if(offset >= file.size) {
+        if(remainder) processText(remainder);
+        progressBar.style.width = "100%";
+        return;
+      }
+      const slice = file.slice(offset, offset + chunkSize);
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        if(stopMainSearch) return;
+        let text = remainder + e.target.result;
+        let lines = text.split("\n");
+        remainder = lines.pop();
+        processText(lines.join("\n"));
+        offset += chunkSize;
+        progressBar.style.width = Math.floor((offset / file.size) * 100) + "%";
+        setTimeout(processChunk, 0);
+      };
+      reader.readAsText(slice);
+    }
+    
+    function processText(text) {
+      if(stopMainSearch) return;
+      let lines = text.split("\n");
+      const queryWords = query.split(/\s+/);
+      lines.forEach(line => {
+        if(stopMainSearch) return;
+        let fields = line.trim().split(/\s+/);
+        if(fields.length >= (2 + queryWords.length)) {
+          let isMatch = true;
+          for(let i = 0; i < queryWords.length; i++){
+            if(!fields[2 + i] || !fields[2 + i].includes(queryWords[i])){
+              isMatch = false;
+              break;
+            }
+          }
+          if(isMatch) {
+            const personName = (fields[2] || "") + " " + (fields[3] || "") + " " + (fields[4] || "");
+            if(displayedNames.has(personName)) return;
+            displayedNames.add(personName);
+    
+            let copyText = "";
+            let html = "";
+    
+            html += "<span>" + columnLabels[1] + ": " + (fields[1] || "") + "</span>";
+            html += "<span>الاسم: " + personName + "</span>";
+            html += "<span>" + columnLabels[6] + ": " + (fields[6] || "") + "</span>";
+            if(fields[8]) {
+              html += "<span>" + columnLabels[8] + ": " + fields[8] + "</span>";
+            }
+            for(let i = 0; i < fields.length; i++){
+              let label = (i < columnLabels.length) ? columnLabels[i] : ("عمود " + (i+1));
+              copyText += label + ": " + fields[i].trim() + "\n";
+            }
+            const div = document.createElement("div");
+            div.className = "result-item";
+            const btnContainer = "<div class='btn-container'>" +
+              "<button class='family-btn' onclick='event.stopPropagation(); timeouts.forEach(clearTimeout); stopMainSearch=true; resultsContainer.innerHTML=\"\"; searchByField2(\"" + fields[1] + "\")'><i class='fas fa-users'></i> عرض العائلة</button>" +
+              "</div>";
+            div.innerHTML = html + btnContainer;
+            const timeoutId = setTimeout(() => {
+              resultsContainer.appendChild(div);
+            }, displayDelay * delayIndex++);
+            timeouts.push(timeoutId);
+          }
+        }
+      });
+    }
+    
+    function searchByField2(field2Value) {
+      timeouts.forEach(clearTimeout);
+      timeouts = [];
+      resultsContainer.innerHTML = "";
+      offset = 0;
+      remainder = "";
+      delayIndex = 0;
+      progressBar.style.width = "0%";
+      displayedNames.clear();
+      currentSearchType = "field2";
+      currentField2Value = field2Value;
+      familyData = [];
+      processChunkField2();
+    }
+    
+    function processChunkField2() {
+      if(offset >= file.size) {
+        if(remainder) processTextField2(remainder);
+        progressBar.style.width = "100%";
+        if(familyData.length > 0) {
+          const copyFamilyBtn = document.createElement("button");
+          copyFamilyBtn.className = "copy-btn";
+          copyFamilyBtn.style.marginTop = "20px";
+          copyFamilyBtn.innerHTML = "<i class='fas fa-copy'></i> نسخ العائلة";
+          copyFamilyBtn.onclick = () => {
+            const allFamilyText = familyData.join("\n\n");
+            navigator.clipboard.writeText(allFamilyText).then(() => {
+              copyFamilyBtn.textContent = "تم نسخ العائلة";
+              setTimeout(() => {
+                copyFamilyBtn.innerHTML = "<i class='fas fa-copy'></i> نسخ العائلة";
+              }, 2000);
+            });
+          };
+          resultsContainer.appendChild(copyFamilyBtn);
+        }
+        return;
+      }
+      const slice = file.slice(offset, offset + chunkSize);
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        let text = remainder + e.target.result;
+        let lines = text.split("\n");
+        remainder = lines.pop();
+        processTextField2(lines.join("\n"));
+        offset += chunkSize;
+        progressBar.style.width = Math.floor((offset / file.size) * 100) + "%";
+        setTimeout(processChunkField2, 0);
+      };
+      reader.readAsText(slice);
+    }
+    
+    function processTextField2(text) {
+      let lines = text.split("\n");
+      lines.forEach(line => {
+        let fields = line.trim().split(/\s+/);
+        if(fields[1] && fields[1].trim() === currentField2Value) {
+          let html = "";
+          let copyText = "";
+          html += "<span>" + columnLabels[6] + ": " + (fields[6] || "") + "</span>";
+          for(let i = 0; i < fields.length; i++){
+            let label = (i < columnLabels.length) ? columnLabels[i] : ("عمود " + (i+1));
+            html += "<span>" + label + ": " + fields[i].trim() + "</span>";
+            copyText += label + ": " + fields[i].trim() + "\n";
+          }
+          familyData.push(copyText);
+          const div = document.createElement("div");
+          div.className = "result-item";
+          div.innerHTML = html;
+          const timeoutId = setTimeout(() => {
+            resultsContainer.appendChild(div);
+          }, displayDelay * delayIndex++);
+          timeouts.push(timeoutId);
+        }
+      });
+    }
+  </script>
+</body>
+</html>
